@@ -1,0 +1,63 @@
+services:
+  mysql:
+    image: mysql:5.7.22
+    container_name: hotel-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: hotel
+      MYSQL_USER: hotel
+      MYSQL_PASSWORD: hotel123
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    command: 
+      --character-set-server=utf8mb4 
+      --collation-server=utf8mb4_general_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 30s
+      retries: 5
+      timeout: 30s
+      start_period: 30s
+
+  hotel-server:
+    image: zhongmingyv/hotel-server:1.0
+    container_name: hotel-server
+    environment:
+      SPRING_REDIS_HOST: 127.0.0.1
+      SPRING_REDIS_PASSWORD: 12345
+      SPRING_REDIS_PORT: 6379
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3307/hotel?characterEncoding=utf-8&useSSL=false
+      SPRING_DATASOURCE_USERNAME: hotel
+      SPRING_DATASOURCE_PASSWORD: hotel123
+    depends_on:
+      - mysql
+      - redis
+    ports:
+      - "8080:8080"
+
+  hotel-vue:
+    image: zhongmingyv/hotel-vue:1.0
+    container_name: hotel-vue
+    ports:
+      - "8081:80"
+    depends_on:
+      - hotel-server
+      - redis
+      - mysql
+
+  redis:
+    image: redis:2.8
+    container_name: hotel-redis
+    command: ["redis-server", "--requirepass", "12345"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
